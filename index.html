@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>骰子大賽動畫遊戲</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <style>
+      button { min-height: 2.75rem; }
+
+      :root {
+        --bg-1: #0e3a45;
+        --bg-2: #14532d;
+        --panel: rgba(255, 255, 255, 0.08);
+        --panel-border: rgba(255, 255, 255, 0.16);
+        --ink: #f7fafc;
+        --ink-dim: #c9d8dc;
+        --you: #ff6b4a;
+        --you-soft: rgba(255, 107, 74, 0.16);
+        --cpu: #38bdf8;
+        --cpu-soft: rgba(56, 189, 248, 0.14);
+        --gold: #fbbf24;
+        --btn: #f59e0b;
+        --btn-hover: #fbbf24;
+        --btn-ink: #451a03;
+        --die-face: #ffffff;
+        --die-edge: #d7dee2;
+        --pip: #17202a;
+        --pip-red: #dc2626;
+        --history-bg: rgba(0, 0, 0, 0.22);
+        --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg-1: #bae6fd;
+          --bg-2: #bbf7d0;
+          --panel: rgba(255, 255, 255, 0.72);
+          --panel-border: rgba(15, 60, 70, 0.14);
+          --ink: #12303a;
+          --ink-dim: #47636c;
+          --history-bg: rgba(255, 255, 255, 0.6);
+          --shadow: 0 18px 40px rgba(18, 60, 70, 0.18);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+        color: var(--ink);
+        background: linear-gradient(150deg, var(--bg-1) 0%, var(--bg-2) 100%);
+        background-attachment: fixed;
+        min-height: 100vh;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 20px 16px 28px;
+      }
+
+      h1 {
+        margin: 4px 0 2px;
+        text-align: center;
+        font-size: clamp(1.7rem, 5.5vw, 2.6rem);
+        font-weight: 900;
+        letter-spacing: 0.04em;
+      }
+      .subtitle {
+        text-align: center;
+        margin: 0 0 18px;
+        color: var(--ink-dim);
+        font-size: clamp(0.95rem, 3vw, 1.05rem);
+        font-weight: 500;
+      }
+      .subtitle strong { color: var(--gold); }
+
+      /* ---------- 計分板 ---------- */
+      .scoreboard {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 10px;
+        align-items: stretch;
+        margin-bottom: 16px;
+      }
+      .score-card {
+        background: var(--panel);
+        border: 1.5px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 12px 10px 14px;
+        text-align: center;
+        backdrop-filter: blur(4px);
+      }
+      .score-card .who {
+        font-size: clamp(1rem, 3.4vw, 1.25rem);
+        font-weight: 900;
+        letter-spacing: 0.06em;
+      }
+      .score-card.you .who { color: var(--you); }
+      .score-card.cpu .who { color: var(--cpu); }
+      .score-card .points {
+        font-size: clamp(2.2rem, 8vw, 3.2rem);
+        font-weight: 900;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+      }
+      .score-card .points small { font-size: 0.42em; font-weight: 700; color: var(--ink-dim); }
+      .dots { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
+      .dots i {
+        width: 13px; height: 13px; border-radius: 50%;
+        border: 2px solid var(--ink-dim);
+        opacity: 0.55;
+        display: block;
+      }
+      .score-card.you .dots i.on { background: var(--you); border-color: var(--you); opacity: 1; }
+      .score-card.cpu .dots i.on { background: var(--cpu); border-color: var(--cpu); opacity: 1; }
+      .round-card {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 18px;
+        background: var(--history-bg);
+        border: 1.5px dashed var(--panel-border);
+        min-width: 92px;
+      }
+      .round-card .label { font-size: 0.82rem; color: var(--ink-dim); font-weight: 700; letter-spacing: 0.14em; }
+      .round-card .num { font-size: clamp(1.5rem, 5vw, 2rem); font-weight: 900; font-variant-numeric: tabular-nums; }
+
+      /* ---------- 慶祝橫幅 ---------- */
+      .banner {
+        display: none;
+        text-align: center;
+        font-weight: 900;
+        font-size: clamp(1.3rem, 5vw, 1.9rem);
+        padding: 16px 14px;
+        border-radius: 18px;
+        margin-bottom: 16px;
+        background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
+        color: #451a03;
+        box-shadow: var(--shadow);
+      }
+      .banner.show { display: block; animation: banner-in 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+      .banner.cpu-win { background: linear-gradient(90deg, #0284c7, #38bdf8, #0284c7); color: #082f49; }
+      @keyframes banner-in {
+        from { transform: scale(0.8) translateY(-10px); opacity: 0; }
+        to { transform: scale(1) translateY(0); opacity: 1; }
+      }
+
+      /* ---------- 對戰區 ---------- */
+      .arena {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .side {
+        background: var(--panel);
+        border: 2px solid var(--panel-border);
+        border-radius: 22px;
+        padding: 18px 10px 16px;
+        text-align: center;
+        transition: border-color 0.25s, background 0.25s, transform 0.25s;
+      }
+      .side.you { background: var(--you-soft); }
+      .side.cpu { background: var(--cpu-soft); }
+      .side.round-win { transform: translateY(-4px); }
+      .side.you.round-win { border-color: var(--you); }
+      .side.cpu.round-win { border-color: var(--cpu); }
+      .side .name {
+        font-size: clamp(1.15rem, 4.4vw, 1.5rem);
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        margin-bottom: 14px;
+      }
+      .side.you .name { color: var(--you); }
+      .side.cpu .name { color: var(--cpu); }
+      .dice-row {
+        display: flex;
+        justify-content: center;
+        gap: clamp(10px, 3vw, 20px);
+        flex-wrap: wrap;
+      }
+      .vs {
+        font-weight: 900;
+        font-size: clamp(1.1rem, 4vw, 1.6rem);
+        color: var(--gold);
+        background: var(--history-bg);
+        border: 2px solid var(--gold);
+        border-radius: 50%;
+        width: clamp(46px, 11vw, 60px);
+        height: clamp(46px, 11vw, 60px);
+        display: flex; align-items: center; justify-content: center;
+        letter-spacing: 0.02em;
+      }
+      .sum {
+        margin-top: 14px;
+        font-size: clamp(1.05rem, 3.8vw, 1.3rem);
+        font-weight: 700;
+        color: var(--ink-dim);
+        min-height: 1.5em;
+      }
+      .sum b { color: var(--ink); font-size: 1.35em; font-variant-numeric: tabular-nums; }
+
+      /* ---------- 骰子 ---------- */
+      .die {
+        width: clamp(74px, 19vw, 118px);
+        height: clamp(74px, 19vw, 118px);
+        background: linear-gradient(145deg, #ffffff 0%, var(--die-face) 55%, var(--die-edge) 100%);
+        border-radius: 18%;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35), inset 0 -4px 8px rgba(0, 0, 0, 0.08);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        padding: 13%;
+        flex: none;
+      }
+      .die .pip {
+        width: 72%; height: 72%;
+        margin: auto;
+        border-radius: 50%;
+        background: transparent;
+      }
+      .die .pip.on { background: var(--pip); box-shadow: inset 0 -2px 3px rgba(255,255,255,0.25); }
+      .die[data-value="1"] .pip.on { background: var(--pip-red); width: 88%; height: 88%; }
+      .die.rolling { animation: tumble 0.16s linear infinite; }
+      .die.landed { animation: land 0.38s cubic-bezier(0.2, 2.2, 0.4, 1) both; }
+      @keyframes tumble {
+        0%   { transform: rotate(-13deg) translate(0, 0) scale(1); }
+        25%  { transform: rotate(9deg) translate(2px, -7px) scale(1.04); }
+        50%  { transform: rotate(-6deg) translate(-3px, 2px) scale(0.97); }
+        75%  { transform: rotate(14deg) translate(3px, -4px) scale(1.03); }
+        100% { transform: rotate(-11deg) translate(-2px, 3px) scale(1); }
+      }
+      @keyframes land {
+        0% { transform: translateY(-14px) scale(1.06); }
+        55% { transform: translateY(3px) scale(0.96); }
+        100% { transform: translateY(0) scale(1); }
+      }
+
+      /* ---------- 訊息與按鈕 ---------- */
+      .message {
+        text-align: center;
+        font-size: clamp(1.1rem, 4.2vw, 1.45rem);
+        font-weight: 900;
+        min-height: 1.6em;
+        margin: 12px 0 14px;
+        letter-spacing: 0.02em;
+      }
+      .message .win-you { color: var(--you); }
+      .message .win-cpu { color: var(--cpu); }
+      .message .tie { color: var(--gold); }
+
+      .controls { text-align: center; }
+      #rollBtn {
+        font-family: inherit;
+        font-size: clamp(1.35rem, 5.5vw, 1.8rem);
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        color: var(--btn-ink);
+        background: linear-gradient(180deg, var(--btn-hover), var(--btn));
+        border: none;
+        border-radius: 999px;
+        padding: 16px 52px;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35), inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+        transition: transform 0.12s, filter 0.12s;
+        min-width: min(78vw, 340px);
+      }
+      #rollBtn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-2px); }
+      #rollBtn:active:not(:disabled) { transform: translateY(1px) scale(0.98); }
+      #rollBtn:disabled { opacity: 0.65; cursor: wait; }
+      #rollBtn.again { background: linear-gradient(180deg, #4ade80, #22c55e); color: #052e16; }
+
+      .reset-row { text-align: center; margin-top: 12px; }
+      #resetBtn {
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--ink);
+        background: transparent;
+        border: 1.5px solid var(--panel-border);
+        border-radius: 999px;
+        padding: 8px 22px;
+        cursor: pointer;
+      }
+      #resetBtn:hover { border-color: var(--ink-dim); }
+
+      /* ---------- 回合紀錄 ---------- */
+      .history {
+        margin-top: 26px;
+        background: var(--history-bg);
+        border: 1.5px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 16px 18px 10px;
+      }
+      .history h2 {
+        margin: 0 0 10px;
+        font-size: 1.05rem;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+      }
+      .history ul { list-style: none; margin: 0; padding: 0; }
+      .history li {
+        padding: 9px 2px;
+        border-top: 1px solid var(--panel-border);
+        font-size: clamp(0.92rem, 3.4vw, 1.02rem);
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .history li:first-child { border-top: none; }
+      .history li.new { animation: slide-in 0.35s ease both; }
+      @keyframes slide-in {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .history .tag { font-weight: 900; white-space: nowrap; }
+      .history .tag.you { color: var(--you); }
+      .history .tag.cpu { color: var(--cpu); }
+      .history .tag.tie { color: var(--gold); }
+      .history .empty { color: var(--ink-dim); padding: 6px 2px 12px; font-size: 0.95rem; }
+
+      footer {
+        margin-top: 22px;
+        text-align: center;
+        color: var(--ink-dim);
+        font-size: 0.82rem;
+        line-height: 1.6;
+      }
+      footer code {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        background: var(--history-bg);
+        padding: 1px 6px;
+        border-radius: 6px;
+        color: var(--ink);
+      }
+
+      /* 慶祝紙花 */
+      .confetti {
+        position: fixed;
+        top: -16px;
+        width: 10px; height: 16px;
+        z-index: 50;
+        pointer-events: none;
+        border-radius: 2px;
+        animation: fall linear forwards;
+      }
+      @keyframes fall {
+        to { transform: translateY(105vh) rotate(720deg); opacity: 0.85; }
+      }
+
+      @media (max-width: 420px) {
+        .scoreboard { gap: 6px; }
+        .round-card { min-width: 70px; padding: 6px 8px; }
+        .arena { gap: 6px; }
+        .side { padding: 14px 6px 12px; border-radius: 18px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .die.rolling { animation-duration: 0.32s; }
+        .die.landed, .banner.show, .history li.new { animation: none; }
+        .confetti { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>🎲 骰子大賽</h1>
+      <p class="subtitle">你 vs 電腦．每人兩顆骰子比總和，<strong>先得 5 分</strong>獲勝！</p>
+
+      <!-- 計分板 -->
+      <section class="scoreboard" aria-label="計分板">
+        <div class="score-card you">
+          <div class="who">你</div>
+          <div class="points"><span id="youScore">0</span><small> 分</small></div>
+          <div class="dots" id="youDots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="round-card">
+          <div class="label">回合</div>
+          <div class="num" id="roundNum">1</div>
+        </div>
+        <div class="score-card cpu">
+          <div class="who">電腦</div>
+          <div class="points"><span id="cpuScore">0</span><small> 分</small></div>
+          <div class="dots" id="cpuDots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </section>
+
+      <!-- 慶祝橫幅 -->
+      <div class="banner" id="banner" role="status"></div>
+
+      <!-- 對戰區 -->
+      <section class="arena">
+        <div class="side you" id="youSide">
+          <div class="name">👦 你</div>
+          <div class="dice-row">
+            <div class="die" id="dieY1" data-value="5" role="img" aria-label="你的骰子"></div>
+            <div class="die" id="dieY2" data-value="2" role="img" aria-label="你的骰子"></div>
+          </div>
+          <div class="sum" id="youSum">合計 <b>–</b></div>
+        </div>
+
+        <div class="vs" aria-hidden="true">VS</div>
+
+        <div class="side cpu" id="cpuSide">
+          <div class="name">🤖 電腦</div>
+          <div class="dice-row">
+            <div class="die" id="dieC1" data-value="3" role="img" aria-label="電腦的骰子"></div>
+            <div class="die" id="dieC2" data-value="4" role="img" aria-label="電腦的骰子"></div>
+          </div>
+          <div class="sum" id="cpuSum">合計 <b>–</b></div>
+        </div>
+      </section>
+
+      <p class="message" id="message" aria-live="polite">準備好了嗎？按下大按鈕開始擲骰子！</p>
+
+      <div class="controls">
+        <button id="rollBtn" type="button">🎲 擲骰子！</button>
+      </div>
+      <div class="reset-row">
+        <button id="resetBtn" type="button">↺ 重新開始</button>
+      </div>
+
+      <!-- 回合紀錄 -->
+      <section class="history" aria-label="回合紀錄">
+        <h2>📜 回合紀錄（最近 10 回合）</h2>
+        <ul id="historyList"></ul>
+        <p class="empty" id="historyEmpty">還沒有紀錄，擲下第一回合吧！</p>
+      </section>
+
+      <footer>
+        資訊課體驗小遊戲・對應 Python 課的 random 概念：<code>random.randint(1, 6)</code><br />
+        每顆骰子都是隨機抽出 1～6，就像程式裡呼叫一次 randint 一樣。
+      </footer>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var WIN_SCORE = 5;
+        var ROLL_MS = 900;      // 滾動總時間
+        var TICK_MS = 80;       // 骰面變換間隔
+        var STAGGER_MS = 260;   // 電腦晚一點停
+
+        // 每個點數對應亮起的格子（3x3 位置 0~8）
+        var PIPS = {
+          1: [4],
+          2: [0, 8],
+          3: [0, 4, 8],
+          4: [0, 2, 6, 8],
+          5: [0, 2, 4, 6, 8],
+          6: [0, 2, 3, 5, 6, 8]
+        };
+
+        function buildDie(el) {
+          for (var i = 0; i < 9; i++) {
+            var s = document.createElement("span");
+            s.className = "pip";
+            el.appendChild(s);
+          }
+        }
+        function setDie(el, value) {
+          el.setAttribute("data-value", value);
+          var pips = el.children;
+          var on = PIPS[value];
+          for (var i = 0; i < 9; i++) {
+            pips[i].className = on.indexOf(i) >= 0 ? "pip on" : "pip";
+          }
+          el.setAttribute("aria-label", el.getAttribute("aria-label").split("：")[0] + "：" + value + " 點");
+        }
+        function randint16() { return Math.floor(Math.random() * 6) + 1; }
+
+        var dice = {
+          y1: document.getElementById("dieY1"),
+          y2: document.getElementById("dieY2"),
+          c1: document.getElementById("dieC1"),
+          c2: document.getElementById("dieC2")
+        };
+        Object.keys(dice).forEach(function (k) {
+          buildDie(dice[k]);
+          setDie(dice[k], parseInt(dice[k].getAttribute("data-value"), 10));
+        });
+
+        var els = {
+          youScore: document.getElementById("youScore"),
+          cpuScore: document.getElementById("cpuScore"),
+          youDots: document.getElementById("youDots").children,
+          cpuDots: document.getElementById("cpuDots").children,
+          roundNum: document.getElementById("roundNum"),
+          banner: document.getElementById("banner"),
+          message: document.getElementById("message"),
+          rollBtn: document.getElementById("rollBtn"),
+          resetBtn: document.getElementById("resetBtn"),
+          youSum: document.getElementById("youSum"),
+          cpuSum: document.getElementById("cpuSum"),
+          youSide: document.getElementById("youSide"),
+          cpuSide: document.getElementById("cpuSide"),
+          historyList: document.getElementById("historyList"),
+          historyEmpty: document.getElementById("historyEmpty")
+        };
+
+        var state;
+        function resetGame() {
+          state = { you: 0, cpu: 0, round: 1, rolling: false, over: false };
+          els.youScore.textContent = "0";
+          els.cpuScore.textContent = "0";
+          els.roundNum.textContent = "1";
+          paintDots();
+          els.banner.className = "banner";
+          els.banner.textContent = "";
+          els.message.textContent = "準備好了嗎？按下大按鈕開始擲骰子！";
+          els.youSum.innerHTML = "合計 <b>–</b>";
+          els.cpuSum.innerHTML = "合計 <b>–</b>";
+          els.youSide.classList.remove("round-win");
+          els.cpuSide.classList.remove("round-win");
+          els.historyList.innerHTML = "";
+          els.historyEmpty.style.display = "";
+          els.rollBtn.disabled = false;
+          els.rollBtn.textContent = "🎲 擲骰子！";
+          els.rollBtn.classList.remove("again");
+          setDie(dice.y1, 5); setDie(dice.y2, 2);
+          setDie(dice.c1, 3); setDie(dice.c2, 4);
+          [dice.y1, dice.y2, dice.c1, dice.c2].forEach(function (d) {
+            d.classList.remove("rolling", "landed");
+          });
+        }
+
+        function paintDots() {
+          var i;
+          for (i = 0; i < 5; i++) {
+            els.youDots[i].className = i < state.you ? "on" : "";
+            els.cpuDots[i].className = i < state.cpu ? "on" : "";
+          }
+        }
+
+        function landDie(el, value) {
+          el.classList.remove("rolling");
+          setDie(el, value);
+          el.classList.remove("landed");
+          void el.offsetWidth; // 重新觸發動畫
+          el.classList.add("landed");
+        }
+
+        function addHistory(round, y1, y2, c1, c2, resultText, tagClass, tagText) {
+          els.historyEmpty.style.display = "none";
+          var li = document.createElement("li");
+          li.className = "new";
+          var left = document.createElement("span");
+          left.textContent = "第 " + round + " 回合　你 " + y1 + "+" + y2 + "=" + (y1 + y2) +
+            "，電腦 " + c1 + "+" + c2 + "=" + (c1 + c2);
+          var tag = document.createElement("span");
+          tag.className = "tag " + tagClass;
+          tag.textContent = tagText;
+          li.appendChild(left);
+          li.appendChild(tag);
+          els.historyList.insertBefore(li, els.historyList.firstChild);
+          while (els.historyList.children.length > 10) {
+            els.historyList.removeChild(els.historyList.lastChild);
+          }
+        }
+
+        function confetti() {
+          var colors = ["#f59e0b", "#ff6b4a", "#38bdf8", "#4ade80", "#f472b6", "#fbbf24"];
+          for (var i = 0; i < 42; i++) {
+            var piece = document.createElement("div");
+            piece.className = "confetti";
+            piece.style.left = Math.random() * 100 + "vw";
+            piece.style.background = colors[i % colors.length];
+            piece.style.animationDuration = (1.6 + Math.random() * 1.6) + "s";
+            piece.style.animationDelay = (Math.random() * 0.5) + "s";
+            piece.style.transform = "rotate(" + Math.random() * 360 + "deg)";
+            document.body.appendChild(piece);
+            (function (p) { setTimeout(function () { p.remove(); }, 4200); })(piece);
+          }
+        }
+
+        function finishRound(final) {
+          var ySum = final.y1 + final.y2;
+          var cSum = final.c1 + final.c2;
+          els.youSum.innerHTML = "合計 <b>" + ySum + "</b>";
+          els.cpuSum.innerHTML = "合計 <b>" + cSum + "</b>";
+
+          var tagClass, tagText;
+          if (ySum > cSum) {
+            state.you += 1;
+            tagClass = "you"; tagText = "→ 你得分！";
+            els.message.innerHTML = "你 <b>" + ySum + "</b> 點 vs 電腦 <b>" + cSum + "</b> 點 — <span class='win-you'>你得分！🎉</span>";
+            els.youSide.classList.add("round-win");
+          } else if (cSum > ySum) {
+            state.cpu += 1;
+            tagClass = "cpu"; tagText = "→ 電腦得分";
+            els.message.innerHTML = "你 <b>" + ySum + "</b> 點 vs 電腦 <b>" + cSum + "</b> 點 — <span class='win-cpu'>電腦得分</span>";
+            els.cpuSide.classList.add("round-win");
+          } else {
+            tagClass = "tie"; tagText = "→ 平手";
+            els.message.innerHTML = "兩邊都是 <b>" + ySum + "</b> 點 — <span class='tie'>平手！</span>誰都不得分";
+          }
+
+          els.youScore.textContent = state.you;
+          els.cpuScore.textContent = state.cpu;
+          paintDots();
+          addHistory(state.round, final.y1, final.y2, final.c1, final.c2, tagText, tagClass, tagText);
+
+          if (state.you >= WIN_SCORE || state.cpu >= WIN_SCORE) {
+            state.over = true;
+            if (state.you >= WIN_SCORE) {
+              els.banner.textContent = "🏆 你贏了整場比賽！";
+              els.banner.className = "banner show";
+              confetti();
+            } else {
+              els.banner.textContent = "🤖 電腦贏了整場比賽，再挑戰一次吧！";
+              els.banner.className = "banner show cpu-win";
+            }
+            els.rollBtn.textContent = "🔁 再玩一次";
+            els.rollBtn.classList.add("again");
+          } else {
+            state.round += 1;
+            els.roundNum.textContent = state.round;
+            els.rollBtn.textContent = "🎲 擲骰子！";
+          }
+          state.rolling = false;
+          els.rollBtn.disabled = false;
+        }
+
+        function roll() {
+          if (state.rolling) return;
+          if (state.over) { resetGame(); return; }
+
+          state.rolling = true;
+          els.rollBtn.disabled = true;
+          els.rollBtn.textContent = "滾動中…";
+          els.message.textContent = "骰子滾動中，好運降臨！🍀";
+          els.youSide.classList.remove("round-win");
+          els.cpuSide.classList.remove("round-win");
+          els.youSum.innerHTML = "合計 <b>…</b>";
+          els.cpuSum.innerHTML = "合計 <b>…</b>";
+
+          var final = { y1: randint16(), y2: randint16(), c1: randint16(), c2: randint16() };
+          var active = [dice.y1, dice.y2, dice.c1, dice.c2];
+          active.forEach(function (d) {
+            d.classList.remove("landed");
+            d.classList.add("rolling");
+          });
+
+          var timer = setInterval(function () {
+            active.forEach(function (d) { setDie(d, randint16()); });
+          }, TICK_MS);
+
+          setTimeout(function () {
+            // 先停下你的骰子（停下後不再變換骰面）
+            active = [dice.c1, dice.c2];
+            landDie(dice.y1, final.y1);
+            landDie(dice.y2, final.y2);
+            els.youSum.innerHTML = "合計 <b>" + (final.y1 + final.y2) + "</b>";
+          }, ROLL_MS);
+
+          setTimeout(function () {
+            // 再停下電腦的骰子並結算
+            clearInterval(timer);
+            landDie(dice.c1, final.c1);
+            landDie(dice.c2, final.c2);
+            setTimeout(function () { finishRound(final); }, 180);
+          }, ROLL_MS + STAGGER_MS);
+        }
+
+        els.rollBtn.addEventListener("click", roll);
+        els.resetBtn.addEventListener("click", resetGame);
+        document.addEventListener("keydown", function (e) {
+          if ((e.code === "Space" || e.code === "Enter") && document.activeElement === document.body) {
+            e.preventDefault();
+            roll();
+          }
+        });
+
+        resetGame();
+      })();
+    </script>
+  </body>
+</html>
